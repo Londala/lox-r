@@ -1,0 +1,30 @@
+fun fibonacci(n) {
+    var a = 0;
+    var b = 1;
+
+    if (n <= 1) {
+        if(n < 0){
+            print "Bad Input";
+        }
+        else {
+            if (n == 1) {
+                print a;
+            }
+            else {
+                print b;
+            }
+        }
+    }
+    else {
+        while (n > 2) {
+            var c = a + b;
+            a = b;
+            b = c;
+            n = n - 1;
+            print "a: " + a + " b: " + b + " n: " + n;
+        }
+        print b;
+    }
+}
+
+fibonacci(1000);
