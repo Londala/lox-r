@@ -49,9 +49,9 @@ impl fmt::Display for TokenType {
 }
 
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    line_number: usize,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub line_number: usize,
 }
 // impl fmt::Debug for Token {
 //     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
