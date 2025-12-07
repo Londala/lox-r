@@ -1,53 +1,9 @@
 use std::fmt;
 use regex::Regex;
 use verbose_macros::{verbose, debug};
+use crate::token_types::TokenType;
 
-#[derive(Clone, Copy, Debug)]
-pub enum TokenType {
-    UNKNOWN,
-    SEMICOLON,
-    LEFT_PAREN,
-    RIGHT_PAREN,
-    LEFT_BRACE,
-    RIGHT_BRACE,
-    COMMA,
-    PLUS,
-    MINUS,
-    STAR,
-    SLASH,
-
-    // Tokens requiring 1-character lookahead
-    EQUAL,
-    EQUAL_EQUAL,
-    BANG,
-    BANG_EQUAL,
-    LESS,
-    LESS_EQUAL,
-    GREATER,
-    GREATER_EQUAL,
-
-    // Literal values
-    NUMBER,
-    STRING,
-
-    // identifier
-    IDENTIFIER,
-
-    // keywords
-    IF,
-    ELSE,
-    WHILE,
-    VAR,
-    PRINT,
-    UNLESS,
-    FUN
-}
-impl fmt::Display for TokenType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
+#[derive(Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
