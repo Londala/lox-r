@@ -4,6 +4,7 @@ mod parser;
 mod stmt_types;
 mod token_types;
 
+
 use std::fs::File;
 use clap::Parser;
 use std::{env, path::PathBuf};
@@ -24,7 +25,7 @@ fn get_default_input_path() -> PathBuf {
     path.pop();
     path.pop();
     path.push("lox");
-    path.push("input.lox");
+    path.push("simple.lox");
     path
 }
 
@@ -75,6 +76,9 @@ fn run_lox(input_file: PathBuf) {
     verbose!("Tokens: \n{:?}", tokens);
     let statements = parser::parse(tokens);
     verbose!("Statements: \n{:?}", statements);
+
+    let final_vars = interpreter::interpret_statements(statements);
+    verbose!("Final vars: \n{:?}", final_vars);
 
 }
 

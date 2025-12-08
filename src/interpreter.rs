@@ -1,14 +1,68 @@
 
 use std::collections::{HashMap, LinkedList};
 use std::mem::discriminant;
+use derive_more::Display;
 use crate::stmt_types::{
-    Expr, Stmt, NativeType,
+    Expr, Stmt,
     LiteralExpr, VariableExpr, UnaryExpr, BinaryExpr, CallExpr,
     VarDeclStmt, AssignStmt, PrintStmt, BlockStmt,
     IfStmt, WhileStmt, FunDeclStmt, ExprStmt
 };
 use crate::token_types::TokenType;
 
+#[derive(Clone, Debug)]
+pub struct LoxFunction {
+    declaration: FunDeclStmt,
+    closure: LinkedList<HashMap<String, NativeType>>,
+}
+
+impl PartialEq for LoxFunction {
+    fn eq(&self, other: &Self) -> bool {
+        false
+    }
+}
+
+impl LoxFunction {
+
+    pub fn new(declaration: FunDeclStmt, closure: LinkedList<HashMap<String, NativeType>>) -> LoxFunction {
+        LoxFunction{declaration, closure}
+    }
+
+    pub fn arity(&self) -> usize {
+        self.declaration.params.len()
+    }
+
+    pub fn call(&mut self, arguments: Vec<NativeType>) {
+        let mut local_env: HashMap<String, NativeType> = HashMap::new();
+
+        for (i, param) in self.declaration.params.iter().enumerate() {
+            local_env.insert(param.lexeme.clone(), arguments[i].clone());
+        }
+
+        let mut interpreter = Interpreter::new_from_env(self.closure.clone());
+
+        interpreter.environment.push_front(local_env);
+
+        for statement in self.declaration.body.statements.to_owned() {
+            interpreter.run_stmt(statement);
+        }
+    }
+}
+
+
+#[derive(Clone, Debug, PartialEq, Display)]
+pub enum NativeType {
+    #[display("{}", _0)]
+    Str(String),
+    #[display("{}", _0)]
+    Num(f64),
+    #[display("{}", _0)]
+    Bool(bool),
+    #[display("None")]
+    NONE,
+    #[display("{}", _0.declaration.fun_name.lexeme)]
+    LoxFunc(LoxFunction)
+}
 
 fn rem_first_and_last(value: &str) -> &str {
     let mut chars = value.chars();
@@ -17,12 +71,15 @@ fn rem_first_and_last(value: &str) -> &str {
     chars.as_str()
 }
 
-struct LoxFunction {
-    declaration: Stmt,
-    closure: LinkedList<HashMap<String, NativeType>>,
+fn truthy(val: NativeType) -> NativeType {
+    match val {
+        NativeType::Bool(t) => NativeType::Bool(t),
+        NativeType::Num(t) => NativeType::Bool(t == 0.0),
+        _ => NativeType::Bool(true)
+    }
 }
 
-struct Interpreter {
+pub struct Interpreter {
     environment: LinkedList<HashMap<String, NativeType>>,
 }
 
@@ -30,6 +87,10 @@ impl Interpreter {
     fn new_child_env(&mut self) -> &mut HashMap<String, NativeType> {
         self.environment.push_front(HashMap::new());
         self.environment.front_mut().unwrap()
+    }
+
+    fn pop_env(&mut self) -> HashMap<String, NativeType> {
+        self.environment.pop_front().unwrap()
     }
 
     fn find_env_var(&self, name: &str) -> Option<&NativeType> {
@@ -64,6 +125,10 @@ impl Interpreter {
         let mut environment = LinkedList::new();
         environment.push_front(HashMap::new());
         Interpreter { environment }
+    }
+
+    pub fn new_from_env(env: LinkedList<HashMap<String, NativeType>>) -> Interpreter {
+        Interpreter { environment: env }
     }
 
     // --- Expressions --- //
@@ -109,6 +174,12 @@ impl Interpreter {
                     }
                     (NativeType::Str(left), NativeType::Str(right)) => {
                         NativeType::Str(left + &right)
+                    }
+                    (NativeType::Str(left), NativeType::Num(right)) => {
+                        NativeType::Str(format!("{}{}", left, right))
+                    }
+                    (NativeType::Num(left), NativeType::Str(right)) => {
+                        NativeType::Str(format!("{}{}", left, right))
                     }
                     _ => panic!("Operands must be two numbers or two strings for '+' on line {}", expr.operator.line_number)
                 }
@@ -186,29 +257,41 @@ impl Interpreter {
     }
 
 
-    fn truthy(&mut self, val: NativeType) -> NativeType {
-        match val {
-            NativeType::Bool(t) => NativeType::Bool(t),
-            NativeType::Num(t) => NativeType::Bool((t == 0.0)),
-            _ => NativeType::Bool(true)
-        }
-    }
+
     fn eval_unary_expr(&mut self, expr: &UnaryExpr) -> NativeType {
         let right = self.eval_expr(*expr.right.to_owned());
         match expr.operator.token_type {
             TokenType::MINUS => {
-                match (right) {
+                match right {
                     NativeType::Num(r) => {(NativeType::Num(-r))}
                     _ => panic!("Operand must be a number for unary '-' on line {}", expr.operator.line_number)
                 }
             }
             TokenType::BANG => {
-                match self.truthy(right) {
+                match truthy(right) {
                     NativeType::Bool(t) => NativeType::Bool(!t),
                     _ => panic!("Operand must be a bool for unary '!' on line {}", expr.operator.line_number)
                 }
             }
             _ => panic!("Unknown unary operator {:?} at line {}", expr.operator.token_type, expr.operator.line_number)
+        }
+    }
+
+    fn eval_call_expr(&mut self, expr: &CallExpr) -> NativeType {
+        let callee = self.eval_expr(*expr.callee.clone());
+        match callee {
+            NativeType::LoxFunc(mut f) => {
+                let mut arguments = Vec::new();
+                for arg in &expr.arguments {
+                    arguments.push(self.eval_expr(arg.to_owned()));
+                }
+                if arguments.len() != f.arity(){
+                    panic!("Expected {} arguments but got {}", f.arity(), arguments.len());
+                }
+                f.call(arguments);
+                NativeType::NONE
+            }
+            _ => panic!("Call expression called on non-LoxFunc: {:?}", callee),
         }
     }
 
@@ -218,6 +301,7 @@ impl Interpreter {
             Expr::Variable(e) => {self.eval_variable_ref(&e)}
             Expr::Binary(e) => {self.eval_binary_expr(&e)}
             Expr::Unary(e) => {self.eval_unary_expr(&e)}
+            Expr::Call(e) => {self.eval_call_expr(&e)}
             _ => panic!("Unimplemented expr {:?}", expr),
         }
     }
@@ -227,18 +311,91 @@ impl Interpreter {
     fn run_var_decl_stmt(&mut self, stmt: VarDeclStmt){
         let var_name = stmt.identifier.lexeme;
         match self.find_env_var(&var_name) {
-            Some(expr) => panic!("attempted to redeclare variable {}", var_name),
+            Some(expr) => panic!("attempted to redeclare variable {} on line {}", var_name, stmt.identifier.line_number),
             None => {}
         }
         match stmt.init_val {
-            Some(init_val) => {}
-            None => {}
+            Some(init_val) => {
+                let val = self.eval_expr(init_val);
+                self.assign_env_var(&var_name, val);
+            }
+            None => {self.assign_env_var(&var_name, NativeType::NONE)}
         }
+    }
+
+    fn run_assign_stmt(&mut self, stmt: AssignStmt){
+        let var_name = stmt.identifier.lexeme;
+        match self.find_env_var(&var_name) {
+            Some(expr) => {
+                let val = self.eval_expr(stmt.value);
+                self.assign_env_var(&var_name, val)},
+            None => {panic!("attempted to assign non-existent variable {} on line {}", var_name, stmt.identifier.line_number)}
+        }
+    }
+
+    fn run_print_stmt(&mut self, stmt: PrintStmt) {
+        let val = self.eval_expr(stmt.expr);
+        println!("{}", val)
+    }
+
+    fn run_if_stmt(&mut self, mut stmt: IfStmt) {
+        let contitional = self.eval_expr(stmt.condition);
+        if truthy(contitional) == NativeType::Bool(true) {
+            match *stmt.run_if_true {
+                Stmt::Block(b) => {self.run_block_stmt(b)}
+                _ => panic!("If condition should be a block")
+            }
+
+        } else {
+            if let Some(b) = stmt.run_if_false.take() {
+                match *b {
+                    Stmt::Block(block) => {self.run_block_stmt(block)}
+                    _ => {}
+                }
+            }
+
+        }
+    }
+
+    fn run_block_stmt(&mut self, stmt: BlockStmt) {
+        self.new_child_env();
+        for s in stmt.statements {
+            self.run_stmt(s);
+        }
+        self.pop_env();
+        return;
+    }
+
+    fn run_while_stmt(&mut self, stmt: WhileStmt) {
+        while truthy(self.eval_expr(stmt.condition.to_owned())) == NativeType::Bool(true) {
+            let body = *stmt.body.to_owned();
+            match body {
+                Stmt::Block(block) => {self.run_block_stmt(block)}
+                _ => {}
+            }
+        }
+    }
+
+    fn run_fun_decl_stmt(&mut self, stmt: FunDeclStmt) {
+        let func_name = stmt.fun_name.lexeme.clone();
+        let function = LoxFunction::new(stmt, self.environment.clone());
+        self.assign_env_var(&*func_name, NativeType::LoxFunc(function));
+    }
+
+    fn run_expr_stmt(&mut self, stmt: ExprStmt) {
+        self.eval_expr(stmt.expr);
+        return
     }
 
     fn run_stmt(&mut self, stmt: Stmt) {
         match stmt {
             Stmt::VarDecl(s) => self.run_var_decl_stmt(s),
+            Stmt::Assign(s) => self.run_assign_stmt(s),
+            Stmt::Print(s) => self.run_print_stmt(s),
+            Stmt::If(s) => self.run_if_stmt(s),
+            Stmt::While(s) => self.run_while_stmt(s),
+            Stmt::FunDecl(s) => self.run_fun_decl_stmt(s),
+            Stmt::ExprStmt(s) => self.run_expr_stmt(s),
             _ => panic!("Unimplemented stmt type {:?}", stmt)
         }
     }
@@ -252,4 +409,9 @@ impl Interpreter {
 
         return self.environment.clone();
     }
+}
+
+pub fn interpret_statements(statements: Vec<Stmt>) -> LinkedList<HashMap<String, NativeType>> {
+    let mut i = Interpreter::new();
+    i.interpret(statements)
 }

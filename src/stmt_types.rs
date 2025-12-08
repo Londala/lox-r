@@ -46,7 +46,7 @@ pub enum Expr {
 pub struct FunDeclStmt {
     pub fun_name: Token,
     pub params: Vec<Token>,
-    pub body: Box<Stmt>,
+    pub body: BlockStmt,
 }
 
 #[derive(Clone, Debug)]
@@ -96,13 +96,6 @@ pub enum Stmt {
     ExprStmt(ExprStmt),
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum NativeType {
-    Str(String),
-    Num(f64),
-    Bool(bool),
-    NONE,
-}
 
 
 // #[derive(Clone, Copy, Debug)]

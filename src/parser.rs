@@ -365,11 +365,14 @@ impl Parser {
         self.expect(TokenType::RIGHT_PAREN);
         let body_stmt = self.parse_block();
 
-        Stmt::FunDecl(FunDeclStmt{
-            fun_name,
-            params,
-            body: Box::new(body_stmt),
-        })
+        match body_stmt {
+            Stmt::Block(block) => {Stmt::FunDecl(FunDeclStmt{
+                fun_name,
+                params,
+                body: block,
+            })}
+            _ => panic!("Function body missing on function declaration"),
+        }
     }
 
 
