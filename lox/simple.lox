@@ -2,3 +2,6 @@ var x = 5;
 if (x < 0.5) {
     print x;
 }
+if (x >= 5.0) {
+    print "hi";
+}

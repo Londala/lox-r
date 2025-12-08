@@ -1,58 +1,11 @@
-use crate::tokenizer::{ Token, TokenType };
-
-#[derive(Clone, Debug)]
-pub enum Expr {
-    Literal(Token),
-    Variable(Token),
-    Unary {
-        operator: Token,
-        right: Box<Expr>,
-    },
-    Binary {
-        left: Box<Expr>,
-        operator: Token,
-        right: Box<Expr>,
-    },
-    Call {
-        callee: Box<Expr>,
-        arguments: Vec<Expr>,
-    },
-}
-
-#[derive(Clone, Debug)]
-pub enum Stmt {
-    VarDecl {
-        identifier: Token,
-        init_val: Option<Expr>,
-    },
-    Assign {
-        identifier: Token,
-        value: Expr,
-    },
-    Print {
-        expr: Expr,
-    },
-    Block {
-        statements: Vec<Stmt>,
-    },
-    If {
-        condition: Expr,
-        run_if_true: Box<Stmt>,
-        run_if_false: Option<Box<Stmt>>,
-    },
-    While {
-        condition: Expr,
-        body: Box<Stmt>,
-    },
-    FunDecl {
-        fun_name: Token,
-        params: Vec<Token>,
-        body: Box<Stmt>,
-    },
-    ExprStmt {
-        expr: Expr,
-    },
-}
+use crate::tokenizer::Token;
+use crate::token_types::TokenType;
+use crate::stmt_types::{
+    Expr, Stmt,
+    LiteralExpr, VariableExpr, UnaryExpr, BinaryExpr, CallExpr,
+    VarDeclStmt, AssignStmt, PrintStmt, BlockStmt,
+    IfStmt, WhileStmt, FunDeclStmt, ExprStmt
+};
 
 
 pub struct Parser {
@@ -100,19 +53,18 @@ impl Parser {
             None => panic!("Expected {:?}, but got end of file", token_type),
         }
     }
-}
 
-impl Parser {
+
     // primary: NUMBER | STRING | IDENTIFIER | LEFT_PAREN expression RIGHT_PAREN
     fn parse_primary_expr(&mut self) -> Expr {
         match self.next_token_type() {
             Some(TokenType::STRING) | Some(TokenType::NUMBER) => {
                 let lit = self.advance().unwrap();
-                Expr::Literal(lit)
+                Expr::Literal(LiteralExpr {literal: lit})
             }
             Some(TokenType::IDENTIFIER) => {
                 let ident = self.advance().unwrap();
-                Expr::Variable(ident)
+                Expr::Variable(VariableExpr {identifier:ident})
             }
             Some(TokenType::LEFT_PAREN) => {
                 self.advance(); // consume '('
@@ -126,9 +78,8 @@ impl Parser {
             }
         }
     }
-}
 
-impl Parser {
+
     // call: primary ( LEFT_PAREN [ arguments ] RIGHT_PAREN )*
     // arguments: expression (COMMA expression)*
     fn parse_call_expr(&mut self) -> Expr {
@@ -147,10 +98,10 @@ impl Parser {
                         }
                     }
                     self.expect(TokenType::RIGHT_PAREN);
-                    expr = Expr::Call {
+                    expr = Expr::Call(CallExpr {
                         callee: Box::new(expr),
                         arguments: args,
-                    };
+                    });
                 }
                 _ => break,
             }
@@ -158,26 +109,24 @@ impl Parser {
 
         expr
     }
-}
 
-impl Parser {
+
     // unary: ( BANG | MINUS ) unary | call
     fn parse_unary_expr(&mut self) -> Expr {
         match self.next_token_type() {
             Some(TokenType::BANG) | Some(TokenType::MINUS) => {
                 let operator = self.advance().unwrap();
                 let right = self.parse_unary_expr();
-                Expr::Unary {
+                Expr::Unary(UnaryExpr {
                     operator,
                     right: Box::new(right),
-                }
+                })
             }
             _ => self.parse_call_expr(),
         }
     }
-}
 
-impl Parser {
+
     // factor: unary ( ( SLASH | STAR ) unary )*
     fn parse_factor_expr(&mut self) -> Expr {
         let mut expr = self.parse_unary_expr();
@@ -185,11 +134,11 @@ impl Parser {
         while matches!(self.next_token_type(), Some(TokenType::SLASH | TokenType::STAR)) {
             let operator = self.advance().unwrap();
             let right = self.parse_unary_expr();
-            expr = Expr::Binary {
+            expr = Expr::Binary(BinaryExpr {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
-            };
+            });
         }
 
         expr
@@ -202,11 +151,11 @@ impl Parser {
         while matches!(self.next_token_type(), Some(TokenType::MINUS | TokenType::PLUS)) {
             let operator = self.advance().unwrap();
             let right = self.parse_factor_expr();
-            expr = Expr::Binary {
+            expr = Expr::Binary(BinaryExpr {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
-            };
+            });
         }
 
         expr
@@ -225,11 +174,11 @@ impl Parser {
         ) {
             let operator = self.advance().unwrap();
             let right = self.parse_term_expr();
-            expr = Expr::Binary {
+            expr = Expr::Binary(BinaryExpr {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
-            };
+            });
         }
 
         expr
@@ -245,11 +194,11 @@ impl Parser {
         ) {
             let operator = self.advance().unwrap();
             let right = self.parse_comparison_expr();
-            expr = Expr::Binary {
+            expr = Expr::Binary(BinaryExpr {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
-            };
+            });
         }
 
         expr
@@ -259,9 +208,8 @@ impl Parser {
     fn parse_expr(&mut self) -> Expr {
         self.parse_equality_expr()
     }
-}
 
-impl Parser {
+
     // varDeclStmt: VAR IDENTIFIER [EQUAL expression] SEMICOLON
     fn parse_var_decl_stmt(&mut self) -> Stmt {
         self.expect(TokenType::VAR);
@@ -274,38 +222,35 @@ impl Parser {
         }
 
         self.expect(TokenType::SEMICOLON);
-        Stmt::VarDecl {
+        Stmt::VarDecl(VarDeclStmt {
             identifier: var_name,
             init_val,
-        }
+        })
     }
-}
 
-impl Parser {
+
     // assignStmt: IDENTIFIER EQUAL expression SEMICOLON
     fn parse_assign_stmt(&mut self) -> Stmt {
         let var_name = self.expect(TokenType::IDENTIFIER);
         self.expect(TokenType::EQUAL);
         let expr = self.parse_expr();
         self.expect(TokenType::SEMICOLON);
-        Stmt::Assign {
+        Stmt::Assign(AssignStmt {
             identifier: var_name,
             value: expr,
-        }
+        })
     }
-}
 
-impl Parser {
+
     // printStmt: PRINT expression SEMICOLON
     fn parse_print_stmt(&mut self) -> Stmt {
         self.expect(TokenType::PRINT);
         let expr = self.parse_expr();
         self.expect(TokenType::SEMICOLON);
-        Stmt::Print { expr }
+        Stmt::Print(PrintStmt { expr })
     }
-}
 
-impl Parser {
+
     // block: LEFT_BRACE statement* RIGHT_BRACE
     fn parse_block(&mut self) -> Stmt {
         self.expect(TokenType::LEFT_BRACE);
@@ -320,11 +265,10 @@ impl Parser {
         }
 
         self.advance(); // consume RIGHT_BRACE
-        Stmt::Block { statements: body }
+        Stmt::Block(BlockStmt{ statements: body })
     }
-}
 
-impl Parser {
+
     // ifStmt: IF LEFT_PAREN expression RIGHT_PAREN block [ELSE block]
     fn parse_if_stmt(&mut self) -> Stmt {
         self.expect(TokenType::IF);
@@ -341,15 +285,14 @@ impl Parser {
             None
         };
 
-        Stmt::If {
+        Stmt::If(IfStmt {
             condition,
             run_if_true: Box::new(run_if_true),
             run_if_false,
-        }
+        })
     }
-}
 
-impl Parser {
+
     // unlessStmt: UNLESS LEFT_PAREN expression RIGHT_PAREN block [ELSE block]
     fn parse_unless_stmt(&mut self) -> Stmt {
         let unless_line_num = self.peek().map(|t| t.line_number).unwrap_or(0);
@@ -375,20 +318,19 @@ impl Parser {
             line_number: unless_line_num,
         };
 
-        let negated_condition = Expr::Unary {
+        let negated_condition =Expr::Unary(UnaryExpr {
             operator: bang_token,
             right: Box::new(condition),
-        };
+        });
 
-        Stmt::If {
+        Stmt::If(IfStmt{
             condition: negated_condition,
             run_if_true: Box::new(run_if_true),
             run_if_false,
-        }
+        })
     }
-}
 
-impl Parser {
+
     // whileStmt: WHILE LEFT_PAREN expression RIGHT_PAREN block
     fn parse_while_stmt(&mut self) -> Stmt {
         self.expect(TokenType::WHILE);
@@ -397,14 +339,13 @@ impl Parser {
         self.expect(TokenType::RIGHT_PAREN);
         let loop_body = self.parse_block();
 
-        Stmt::While {
+        Stmt::While(WhileStmt{
             condition,
             body: Box::new(loop_body),
-        }
+        })
     }
-}
 
-impl Parser {
+
     // funDecl: FUN IDENTIFIER LEFT_PAREN [IDENTIFIER (COMMA IDENTIFIER)*] RIGHT_PAREN block
     fn parse_fun_decl_stmt(&mut self) -> Stmt {
         self.expect(TokenType::FUN);
@@ -424,23 +365,24 @@ impl Parser {
         self.expect(TokenType::RIGHT_PAREN);
         let body_stmt = self.parse_block();
 
-        Stmt::FunDecl {
-            fun_name,
-            params,
-            body: Box::new(body_stmt),
+        match body_stmt {
+            Stmt::Block(block) => {Stmt::FunDecl(FunDeclStmt{
+                fun_name,
+                params,
+                body: block,
+            })}
+            _ => panic!("Function body missing on function declaration"),
         }
     }
-}
 
-impl Parser {
+
     fn parse_expr_stmt(&mut self) -> Stmt {
         let expr = self.parse_expr();
         self.expect(TokenType::SEMICOLON);
-        Stmt::ExprStmt { expr }
+        Stmt::ExprStmt(ExprStmt { expr })
     }
-}
 
-impl Parser {
+
     // statement: funDeclStmt | varDeclStmt | assignStmt | printStmt |
     //            ifStmt | unlessStmt | whileStmt | exprStmt | block
     fn parse_statement(&mut self) -> Stmt {

@@ -7,3 +7,4 @@ edition = "2024"
 clap = { version = "4.5.53", features = ["debug", "derive", "string"] }
 verbose-macros = "0.1.1"
 regex = "1.12.2"
+derive_more = {version = "2.1.0", features = ["display"]}
