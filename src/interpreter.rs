@@ -339,8 +339,8 @@ impl Interpreter {
     }
 
     fn run_if_stmt(&mut self, mut stmt: IfStmt) {
-        let contitional = self.eval_expr(stmt.condition);
-        if truthy(contitional) == NativeType::Bool(true) {
+        let conditional = self.eval_expr(stmt.condition);
+        if truthy(conditional) == NativeType::Bool(true) {
             match *stmt.run_if_true {
                 Stmt::Block(b) => {self.run_block_stmt(b)}
                 _ => panic!("If condition should be a block")
