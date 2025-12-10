@@ -263,7 +263,7 @@ impl Interpreter {
         match expr.operator.token_type {
             TokenType::MINUS => {
                 match right {
-                    NativeType::Num(r) => {(NativeType::Num(-r))}
+                    NativeType::Num(r) => {NativeType::Num(-r)}
                     _ => panic!("Operand must be a number for unary '-' on line {}", expr.operator.line_number)
                 }
             }
