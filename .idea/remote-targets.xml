@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="RemoteTargetsManager">
+    <targets>
+      <target name="WSL - Ubuntu" type="wsl" uuid="10fe4874-3c15-46d7-b6ab-f4a40148444d">
+        <config>
+          <option name="distributionMsId" value="Ubuntu" />
+          <option name="projectRootOnTarget" value="{exitCode=0, timeout=false, cancelled=false, stdout=/tmp/tmp.h1DQ87CPvp&#13;&#10;, stderr=}/lox-r" />
+        </config>
+        <ContributedStateBase type="RsLanguageRuntime">
+          <config>
+            <option name="cargoPath" value="/home/alexl/.cargo/bin/cargo" />
+            <option name="cargoVersion" value="1.91.1 (ea2d97820 2025-10-10)" />
+            <option name="rustcPath" value="/home/alexl/.cargo/bin/rustc" />
+            <option name="rustcVersion" value="1.91.1 (ed61e7d7e 2025-11-07)" />
+          </config>
+        </ContributedStateBase>
+      </target>
+    </targets>
+  </component>
+</project>

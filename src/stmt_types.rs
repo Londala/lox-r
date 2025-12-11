@@ -1,7 +1,5 @@
-use derive_more::Display;
 
 use crate::tokenizer::Token;
-use crate::token_types::TokenType;
 
 #[derive(Clone, Debug)]
 pub struct LiteralExpr {

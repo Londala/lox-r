@@ -1,6 +1,6 @@
 use std::fmt;
 use regex::Regex;
-use verbose_macros::{verbose, debug};
+use verbose_macros::debug;
 use crate::token_types::TokenType;
 
 #[derive(Clone)]
