@@ -134,7 +134,6 @@ impl Interpreter {
     // --- Expressions --- //
 
     fn eval_literal(&mut self, expr: &LiteralExpr) -> NativeType {
-        let token_type = expr.literal.token_type.clone();
         match expr.literal.token_type {
             TokenType::NUMBER => {
                 let f: f64 = expr.literal.lexeme.parse().unwrap();
@@ -164,8 +163,8 @@ impl Interpreter {
     }
 
     fn eval_binary_expr(&mut self, expr: &BinaryExpr) -> NativeType {
-        let left = self.eval_expr(*expr.left.to_owned());
-        let right = self.eval_expr(*expr.right.to_owned());
+        let left = self.eval_expr(&*expr.left);
+        let right = self.eval_expr(&*expr.right);
         match expr.operator.token_type {
             TokenType::PLUS => {
                 match (left, right) {
@@ -259,7 +258,7 @@ impl Interpreter {
 
 
     fn eval_unary_expr(&mut self, expr: &UnaryExpr) -> NativeType {
-        let right = self.eval_expr(*expr.right.to_owned());
+        let right = self.eval_expr(&*expr.right);
         match expr.operator.token_type {
             TokenType::MINUS => {
                 match right {
@@ -278,12 +277,12 @@ impl Interpreter {
     }
 
     fn eval_call_expr(&mut self, expr: &CallExpr) -> NativeType {
-        let callee = self.eval_expr(*expr.callee.clone());
+        let callee = self.eval_expr(&*expr.callee);
         match callee {
             NativeType::LoxFunc(mut f) => {
                 let mut arguments = Vec::new();
                 for arg in &expr.arguments {
-                    arguments.push(self.eval_expr(arg.to_owned()));
+                    arguments.push(self.eval_expr(arg));
                 }
                 if arguments.len() != f.arity(){
                     panic!("Expected {} arguments but got {}", f.arity(), arguments.len());
@@ -295,7 +294,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_expr(&mut self, expr: Expr) -> NativeType {
+    fn eval_expr(&mut self, expr: &Expr) -> NativeType {
         match expr {
             Expr::Literal(e) => {self.eval_literal(&e)}
             Expr::Variable(e) => {self.eval_variable_ref(&e)}
@@ -316,7 +315,7 @@ impl Interpreter {
         }
         match stmt.init_val {
             Some(init_val) => {
-                let val = self.eval_expr(init_val);
+                let val = self.eval_expr(&init_val);
                 self.assign_env_var(&var_name, val);
             }
             None => {self.assign_env_var(&var_name, NativeType::NONE)}
@@ -327,19 +326,19 @@ impl Interpreter {
         let var_name = stmt.identifier.lexeme;
         match self.find_env_var(&var_name) {
             Some(expr) => {
-                let val = self.eval_expr(stmt.value);
+                let val = self.eval_expr(&stmt.value);
                 self.assign_env_var(&var_name, val)},
             None => {panic!("attempted to assign non-existent variable {} on line {}", var_name, stmt.identifier.line_number)}
         }
     }
 
     fn run_print_stmt(&mut self, stmt: PrintStmt) {
-        let val = self.eval_expr(stmt.expr);
+        let val = self.eval_expr(&stmt.expr);
         println!("{}", val)
     }
 
     fn run_if_stmt(&mut self, mut stmt: IfStmt) {
-        let conditional = self.eval_expr(stmt.condition);
+        let conditional = self.eval_expr(&stmt.condition);
         if truthy(conditional) == NativeType::Bool(true) {
             match *stmt.run_if_true {
                 Stmt::Block(b) => {self.run_block_stmt(b)}
@@ -367,7 +366,7 @@ impl Interpreter {
     }
 
     fn run_while_stmt(&mut self, stmt: WhileStmt) {
-        while truthy(self.eval_expr(stmt.condition.to_owned())) == NativeType::Bool(true) {
+        while truthy(self.eval_expr(&stmt.condition)) == NativeType::Bool(true) {
             let body = *stmt.body.to_owned();
             match body {
                 Stmt::Block(block) => {self.run_block_stmt(block)}
@@ -379,11 +378,12 @@ impl Interpreter {
     fn run_fun_decl_stmt(&mut self, stmt: FunDeclStmt) {
         let func_name = stmt.fun_name.lexeme.clone();
         let function = LoxFunction::new(stmt, self.environment.clone());
+        
         self.assign_env_var(&*func_name, NativeType::LoxFunc(function));
     }
 
     fn run_expr_stmt(&mut self, stmt: ExprStmt) {
-        self.eval_expr(stmt.expr);
+        self.eval_expr(&stmt.expr);
         return
     }
 

@@ -208,7 +208,7 @@ fn tokenize_line(line: &str, line_number: usize) -> Vec<Token> {
 }
 
 pub fn tokenize(code: String) -> Vec<Token> {
-    print!("code contains:\n{}", code);
+    // print!("code contains:\n{}", code);
     let mut tokens: Vec<Token> = Vec::new();
     let mut lines = code.lines();
     let mut line_num : usize = 1;

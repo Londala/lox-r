@@ -30,11 +30,11 @@ impl Parser {
         self.peek().map(|t| t.token_type)
     }
 
-    fn advance(&mut self) -> Option<Token> {
+    fn advance(&mut self) -> Option<&Token> {
         if self.is_at_end() {
             None
         } else {
-            let t = self.tokens[self.current].clone();
+            let t = &self.tokens[self.current];
             self.current += 1;
             Some(t)
         }
@@ -42,7 +42,7 @@ impl Parser {
 
     fn expect(&mut self, token_type: TokenType) -> Token {
         match self.peek() {
-            Some(t) if t.token_type == token_type => self.advance().unwrap(),
+            Some(t) if t.token_type == token_type => self.advance().unwrap().clone(),
             Some(t) =>
                 panic!(
                     "Expected {:?}, but got {:?} on line {}",
@@ -60,11 +60,11 @@ impl Parser {
         match self.next_token_type() {
             Some(TokenType::STRING) | Some(TokenType::NUMBER) => {
                 let lit = self.advance().unwrap();
-                Expr::Literal(LiteralExpr {literal: lit})
+                Expr::Literal(LiteralExpr {literal: lit.clone() })
             }
             Some(TokenType::IDENTIFIER) => {
                 let ident = self.advance().unwrap();
-                Expr::Variable(VariableExpr {identifier:ident})
+                Expr::Variable(VariableExpr {identifier: ident.clone() })
             }
             Some(TokenType::LEFT_PAREN) => {
                 self.advance(); // consume '('
@@ -115,10 +115,10 @@ impl Parser {
     fn parse_unary_expr(&mut self) -> Expr {
         match self.next_token_type() {
             Some(TokenType::BANG) | Some(TokenType::MINUS) => {
-                let operator = self.advance().unwrap();
+                let operator = self.advance().unwrap().clone();
                 let right = self.parse_unary_expr();
                 Expr::Unary(UnaryExpr {
-                    operator,
+                    operator: operator.clone(),
                     right: Box::new(right),
                 })
             }
@@ -132,11 +132,11 @@ impl Parser {
         let mut expr = self.parse_unary_expr();
 
         while matches!(self.next_token_type(), Some(TokenType::SLASH | TokenType::STAR)) {
-            let operator = self.advance().unwrap();
+            let operator = self.advance().unwrap().clone();
             let right = self.parse_unary_expr();
             expr = Expr::Binary(BinaryExpr {
                 left: Box::new(expr),
-                operator,
+                operator: operator.clone(),
                 right: Box::new(right),
             });
         }
@@ -149,11 +149,11 @@ impl Parser {
         let mut expr = self.parse_factor_expr();
 
         while matches!(self.next_token_type(), Some(TokenType::MINUS | TokenType::PLUS)) {
-            let operator = self.advance().unwrap();
+            let operator = self.advance().unwrap().clone();
             let right = self.parse_factor_expr();
             expr = Expr::Binary(BinaryExpr {
                 left: Box::new(expr),
-                operator,
+                operator: operator.clone(),
                 right: Box::new(right),
             });
         }
@@ -172,11 +172,11 @@ impl Parser {
                 | TokenType::LESS
                 | TokenType::LESS_EQUAL)
         ) {
-            let operator = self.advance().unwrap();
+            let operator = self.advance().unwrap().clone();
             let right = self.parse_term_expr();
             expr = Expr::Binary(BinaryExpr {
                 left: Box::new(expr),
-                operator,
+                operator: operator.clone(),
                 right: Box::new(right),
             });
         }
@@ -192,11 +192,11 @@ impl Parser {
             self.next_token_type(),
             Some(TokenType::BANG_EQUAL | TokenType::EQUAL_EQUAL)
         ) {
-            let operator = self.advance().unwrap();
+            let operator = self.advance().unwrap().clone();
             let right = self.parse_comparison_expr();
             expr = Expr::Binary(BinaryExpr {
                 left: Box::new(expr),
-                operator,
+                operator: operator.clone(),
                 right: Box::new(right),
             });
         }

@@ -21,7 +21,6 @@ fun fibonacci(n) {
             a = b;
             b = c;
             n = n - 1;
-            print "a: " + a + " b: " + b + " n: " + n;
         }
         print b;
     }
